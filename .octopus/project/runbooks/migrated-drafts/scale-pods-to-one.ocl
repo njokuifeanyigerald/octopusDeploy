@@ -1,0 +1,59 @@
+name = "🌇 Scale Pods to One"
+description = <<-EOT
+        **Action**: Scales the deployment to one pod.
+        
+        **Affects**: Audits service - this will create new pods if the deployment has been scaled to zero.
+        
+        This runbook is designed to be be run in non-production environments during office hours to recreate the pods after they
+        were shutdown after hours.
+        EOT
+environment_scope = "Specified"
+environments = ["development", "test", "production"]
+
+connectivity_policy {
+    allow_deployments_to_no_targets = true
+}
+
+run_retention_policy {
+    quantity_to_keep = 100
+}
+
+process {
+    step "scale-pods-to-one" {
+        name = "Scale Pods to One"
+        properties = {
+            Octopus.Action.TargetRoles = "EKS_Reference_Cluster"
+        }
+
+        action {
+            action_type = "Octopus.KubernetesRunScript"
+            properties = {
+                Octopus.Action.Script.ScriptBody = "kubectl scale --replicas=1 deployment/#{Kubernetes.Deployment.Name}"
+                Octopus.Action.Script.ScriptSource = "Inline"
+                Octopus.Action.Script.Syntax = "PowerShell"
+                OctopusUseBundledTooling = "False"
+            }
+            worker_pool = "hosted-ubuntu"
+
+            container {
+                feed = "docker-hub"
+                image = "octopuslabs/k8s-workertools"
+            }
+        }
+    }
+
+    step "feedback" {
+        condition = "Always"
+        name = "Feedback"
+
+        action {
+            action_type = "Octopus.Script"
+            properties = {
+                Octopus.Action.Script.ScriptBody = "Write-Highlight \"Please share your feedback on this step in our GitHub discussion at [https://oc.to/CfiezA](https://oc.to/CfiezA).\""
+                Octopus.Action.Script.ScriptSource = "Inline"
+                Octopus.Action.Script.Syntax = "PowerShell"
+            }
+            worker_pool = "hosted-ubuntu"
+        }
+    }
+}
